@@ -5,6 +5,11 @@ on:
     workflows: ["CI Build"]
     types: ['requested']
 
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BUILD_IMAGES: ${{ secrets.AIRFLOW_GITHUB_REGISTRY_WAIT_FOR_IMAGE != 'false' }}
