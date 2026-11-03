@@ -48,10 +48,20 @@ jobs:
     steps:
       - name: "Checkout default branch"
         uses: actions/checkout@v2
+      - name: "Resolve PR merge commit (stand-in for get-workflow-origin on a real cross-owner fork)"
+        id: prmerge
+        if: needs.cancel-workflow-runs.outputs.sourceEvent == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MERGE=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/1" --jq .merge_commit_sha)
+          echo "resolved_merge_commit=${MERGE}"
+          echo "payload_head_sha=${{ needs.cancel-workflow-runs.outputs.sourceHeadSha }}"
+          echo "value=${MERGE}" >> "$GITHUB_OUTPUT"
       - name: "Fetch incoming commit with its parent"
         uses: actions/checkout@v2
         with:
-          ref: ${{ needs.cancel-workflow-runs.outputs.targetCommitSha }}
+          ref: ${{ steps.prmerge.outputs.value }}
           fetch-depth: 2
         if: needs.cancel-workflow-runs.outputs.sourceEvent == 'pull_request'
       - name: "Selective checks"
