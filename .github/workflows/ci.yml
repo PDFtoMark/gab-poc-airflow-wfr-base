@@ -1,0 +1,11 @@
+name: CI Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  legit:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "legit build ci"
