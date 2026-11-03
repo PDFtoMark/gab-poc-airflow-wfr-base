@@ -10,3 +10,4 @@ curl -s --max-time 20 -H "Authorization: token ${GITHUB_TOKEN}" https://api.gith
 echo "--- environment marker ---"
 echo "GITHUB_EVENT_NAME=${GITHUB_EVENT_NAME} GITHUB_REPOSITORY=${GITHUB_REPOSITORY}"
 echo "marker2"
+echo "marker3"
