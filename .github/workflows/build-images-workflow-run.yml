@@ -1,0 +1,65 @@
+---
+name: "Build Images"
+on:
+  workflow_run:
+    workflows: ["CI Build"]
+    types: ['requested']
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BUILD_IMAGES: ${{ secrets.AIRFLOW_GITHUB_REGISTRY_WAIT_FOR_IMAGE != 'false' }}
+
+jobs:
+  cancel-workflow-runs:
+    name: "Cancel workflow runs"
+    runs-on: ubuntu-latest
+    outputs:
+      sourceHeadRepo: ${{ steps.source-run-info.outputs.sourceHeadRepo }}
+      sourceHeadBranch: ${{ steps.source-run-info.outputs.sourceHeadBranch }}
+      sourceHeadSha: ${{ steps.source-run-info.outputs.sourceHeadSha }}
+      mergeCommitSha: ${{ steps.source-run-info.outputs.mergeCommitSha }}
+      targetCommitSha: ${{ steps.source-run-info.outputs.targetCommitSha }}
+      sourceEvent: ${{ steps.source-run-info.outputs.sourceEvent }}
+      buildImages: ${{ steps.build-images.outputs.buildImages }}
+    if: github.event.workflow_run.event != 'schedule'
+    steps:
+      - name: "Get information about the origin 'CI Build' run"
+        uses: potiuk/get-workflow-origin@c657bb36aef4a7402bbe9b2e09a820320f8ff447  # v1
+        id: source-run-info
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sourceRunId: ${{ github.event.workflow_run.id }}
+      - name: "Output BUILD_IMAGES"
+        id: build-images
+        run: |
+          echo "BUILD_IMAGES=${BUILD_IMAGES}"
+          echo "::set-output name=buildImages::${BUILD_IMAGES}"
+
+  build-info:
+    name: "Build info"
+    runs-on: ubuntu-latest
+    needs: [cancel-workflow-runs]
+    if: needs.cancel-workflow-runs.outputs.buildImages == 'true'
+    steps:
+      - name: "Checkout default branch"
+        uses: actions/checkout@v2
+      - name: "Fetch incoming commit with its parent"
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ needs.cancel-workflow-runs.outputs.targetCommitSha }}
+          fetch-depth: 2
+        if: needs.cancel-workflow-runs.outputs.sourceEvent == 'pull_request'
+      - name: "Selective checks"
+        env:
+          EVENT_NAME: ${{ needs.cancel-workflow-runs.outputs.sourceEvent }}
+          INCOMING_COMMIT_SHA: ${{ needs.cancel-workflow-runs.outputs.targetCommitSha }}
+          POC_SECRET: ${{ secrets.POC_SECRET_DEMO }}
+        run: |
+          echo "TARGET_COMMIT_SHA=${INCOMING_COMMIT_SHA}"
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "PARENTS=$(git rev-list --parents -n1 HEAD)"
+          if [[ ${EVENT_NAME} == "pull_request" ]]; then
+            ./scripts/ci/selective_ci_checks.sh "${INCOMING_COMMIT_SHA}"
+          else
+            ./scripts/ci/selective_ci_checks.sh
+          fi
